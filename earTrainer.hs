@@ -5,39 +5,71 @@ module Main where
 import Codec.Midi
 import Control.Concurrent
 import Control.Monad
+import Data.Maybe
 import qualified Data.Text as Text
 import Euterpea
 import Foreign.Marshal.Utils
 import Graphics.Blank
+import System.Random
 
 main = blankCanvas 3000 { static = ["Treble_Clef.svg","notehead.svg"], events = ["mousedown"]}$ \ context -> do
-     looper context ((-1,-1)::(Float, Float))
+     looper context ((-1,-1)::(Float, Float)) (0,0) True
 
-looper context (x',y') = do
+looper context (x',y') (a,b) pn = do
+
+        (a',b') <- getNotes pn (a,b)
+        let intButtIdx = intToPitchToButtIdx (a',b')
+        when pn $ playNotes (a',b')
+        --pn' <- send context $ 
+
+        putStrLn $ show (a',b')
+        putStrLn $ show $ isButtPressed context (x',y')
+        putStrLn $ show (x',y')
+        
         send context (do
                 let (wdt, hgt) = (height context, width context)::(Float,Float)
                 save()
                 let wRat = 3/5  --width ratio
                     hRat = 3/10 --height ratio
                 translate (wdt * wRat, hgt * hRat)
-                let buttCoord = [ drawButton (x*55,150) y | (x,y) <- [(0,"m2"),(1,"m3"),(2,"P4"),(3,"m6"),(4,"m7"),(5,"8ve")]]
-                buttCoord' <- sequence buttCoord
-                let buttIdx = buttonPress buttCoord' (x' - wdt * wRat, y' - hgt * hRat)
-                fillText(Text.pack $ show buttCoord',-250,-250)
-                fillText(Text.pack $ show (x',y'),-200,-200)
-                fillText(Text.pack $ show buttIdx,-150,-150)
+                
+                -- let buttCoord = [ drawButton (x*55,150) y | (x,y) <- [(0,"m2"),(1,"m3"),(2,"P4"),(3,"m6"),(4,"m7"),(5,"8ve")]]
+                -- buttCoord' <- sequence buttCoord
+                -- let buttIdx = buttonPress buttCoord' (x' - wdt * wRat, y' - hgt * hRat)
+                    
+                fillText(Text.pack $ show $ wdt * wRat,-200,-200)
+                fillText(Text.pack $ show $ hgt * hRat,-200,-250)              
+                -- fillText(Text.pack $ show (x',y'),-200,-200)
+                fillText(Text.pack $ show (wdt, hgt),-150,-150)
+
                 stroke()
+                
                 let ntIdx  = getNoteIdx $ getNoteIdxHelper y' hgt hRat
                 let redraw = shouldRedraw ntIdx y'
+       
+                -- when (not redraw) (
+                  
+                --       do clearRect (-(wdt * wRat), -(hgt * hRat), wdt, hgt)
+                --          let buttCoord = [ drawButton (x*55,150) y | (x,y) <- [(0,"m2"),(1,"m3"),(2,"P4"),(3,"m6"),(4,"m7"),(5,"8ve")]]
+                --          buttCoord' <- sequence buttCoord
+                --          drawNote (wdt, hgt) ntIdx
+                --           img2 <- newImage "Treble_Clef.svg"
+                --       let proportion = (width img2) / (height img2)
+                --       drawImage(img2, [0,-13,70*proportion,70])
+                  
                 if not redraw
-                   then do
+                  then do
                       restore()
-                   else do
+                  else do
+                      -- do
                       clearRect (-(wdt * wRat), -(hgt * hRat), wdt, hgt)
                       let buttCoord = [ drawButton (x*55,150) y | (x,y) <- [(0,"m2"),(1,"m3"),(2,"P4"),(3,"m6"),(4,"m7"),(5,"8ve")]]
                       buttCoord' <- sequence buttCoord
+                      let buttIdx = buttonPress buttCoord' (x' - wdt * wRat, y' - hgt * hRat)
+
                       drawNote (wdt, hgt) ntIdx
                       sequence_ $ map drawStaffLines [0,10..40]
+
                       img2 <- newImage "Treble_Clef.svg"
                       let proportion = (width img2) / (height img2)
                       drawImage(img2, [0,-13,70*proportion,70])
@@ -45,8 +77,8 @@ looper context (x',y') = do
           
         event <- wait context
         case ePageXY event of
-          Nothing -> looper context (x',y')
-          Just x -> looper context x
+          Nothing -> looper context (x',y') (a' ,b') pn
+          Just x -> looper context x (a' ,b') pn
 
 shouldRedraw :: Maybe a -> Float -> Bool
 shouldRedraw Nothing (-1)  = True
@@ -93,7 +125,7 @@ drawButton (x,y) s = do
 buttonPress     :: [(Float, Float)] -> (Float, Float) -> Maybe Float
 buttonPress x y = let z = buttonPressWorker x y
                   in if z >= fromIntegral (length x) then Nothing
-                     else Just z
+                                                     else Just z
 
 
 buttonPressWorker :: [(Float, Float)] -> (Float, Float) -> Float
@@ -104,10 +136,40 @@ buttonPressWorker ((x,y):z) c@(a,b) = if a >= x && a <= x + 45 &&
 buttonPressWorker [] _              = 1
 buttonPressWorker _ _               = -1                                           
 
-testButt :: Show a => Maybe a -> Canvas ()
-testButt Nothing  = do fillText("Nothing",50, 50)
-                       stroke()
-testButt (Just a) = do fillText(Text.pack $ show a, 50, 50)
-                       stroke()
 
+getNotes :: Bool -> (Int, Int) -> IO (Int, Int)
+getNotes True _  = do g <- getStdGen
+                      let x = Prelude.head $ randomRs (1,11) g
+                      let y = Prelude.head $ Prelude.tail $ randomRs (max 1 (x - 7), min 11 (x + 7)) g
+                      return (x,y)
+getNotes False a = do return a
 
+--Converts int to Music Pitch in proper octave with a quarter note length
+intToPitch :: Int -> Music Pitch
+intToPitch i = let notes = [c, d, e, f, g, a, b, c, d, e, f, g]
+               in (notes!!i) ((floor ((fromIntegral i)/7)) + 4) qn
+
+                                     --change from writeMidi to play when publish
+playNotes :: (Int,Int) -> IO ()
+playNotes (x,y) = do let z = intToPitch x :+: intToPitch y
+                     writeMidi "randomTest.mid" z --play z
+
+intToPitchToButtIdx :: (Int, Int) -> Int
+intToPitchToButtIdx (x,y) = let a = getAbsPitch $ intToPitch x
+                                b = getAbsPitch$ intToPitch y
+                            in abs $ (a - b)
+
+getAbsPitch :: Music Pitch -> Int
+getAbsPitch (Prim (Note _ m)) = absPitch m
+                                                                                                                                           
+isButtPressed :: DeviceContext -> (Float, Float) -> ([(Float, Float)], Maybe Float)
+isButtPressed context (x',y') = -- let buttCoord = [ (x*55 + wdt * wRat, 150 + hgt * hRat) | x <- [0..4]]
+                                let buttCoord = [(150 + hgt * hRat, x*55 + wdt * wRat) | x <- [0..4]]
+                                    wdt = width context
+                                    hgt = height context
+                                    wRat = 3/5
+                                    hRat = 3/10
+                                    buttIdx = buttonPress buttCoord (x', y')
+                                -- in if isJust buttIdx then False else True
+                                in (buttCoord, buttIdx)
+                                                                                                                                                                                                                                                                                                                         

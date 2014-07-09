@@ -9,11 +9,11 @@ import Foreign.Marshal.Utils
 import Graphics.Blank
 import System.Random
 
-main = do (x,y) <- getNotes
-          let z = intToPitch x
-          print (x,y)
-          print z
-          playNotes (x,y)
+-- main = do (x,y) <- getNotes
+--           let z = intToPitch x
+--           print (x,y)
+--           print z
+--           playNotes (x,y)
                    
 --make sure distance isn't great than 7 (?)
 getNotes :: IO (Int, Int)

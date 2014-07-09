@@ -1,5 +1,5 @@
 all:
 	ghc earTrainer.hs -threaded
-	./cpMain
+	./earTrainer
 clean:
 	rm earTrainer.hi earTrainer.o earTrainer Main Main.hi Main.o

@@ -27,10 +27,11 @@ looper context (x',y') (a,b) pn = do
         putStrLn $ show (x',y')
         
         send context (do
-                let (wdt, hgt) = (height context, width context)::(Float,Float)
+                --let (wdt, hgt) = (height context, width context)::(Float,Float)
+                let (wdt, hgt) = (width context, height context)::(Float,Float)                         
                 save()
-                let wRat = 3/5  --width ratio
-                    hRat = 3/10 --height ratio
+                let hRat = 1/2 --3/5  --height ratio
+                    wRat = 1/2 --3/10 --width ratio
                 translate (wdt * wRat, hgt * hRat)
                 
                 -- let buttCoord = [ drawButton (x*55,150) y | (x,y) <- [(0,"m2"),(1,"m3"),(2,"P4"),(3,"m6"),(4,"m7"),(5,"8ve")]]
@@ -163,12 +164,12 @@ getAbsPitch :: Music Pitch -> Int
 getAbsPitch (Prim (Note _ m)) = absPitch m
                                                                                                                                            
 isButtPressed :: DeviceContext -> (Float, Float) -> ([(Float, Float)], Maybe Float)
-isButtPressed context (x',y') = -- let buttCoord = [ (x*55 + wdt * wRat, 150 + hgt * hRat) | x <- [0..4]]
-                                let buttCoord = [(150 + hgt * hRat, x*55 + wdt * wRat) | x <- [0..4]]
+isButtPressed context (x',y') = let buttCoord = [ (x*55 + wdt * wRat, 150 + hgt * hRat) | x <- [0..5]]
+                                -- let buttCoord = [(150 + hgt * hRat, x*55 + wdt * wRat) | x <- [0..4]]
                                     wdt = width context
                                     hgt = height context
-                                    wRat = 3/5
-                                    hRat = 3/10
+                                    hRat = 0.5--3/5
+                                    wRat = 0.5--3/10
                                     buttIdx = buttonPress buttCoord (x', y')
                                 -- in if isJust buttIdx then False else True
                                 in (buttCoord, buttIdx)

@@ -16,6 +16,9 @@ main = blankCanvas 3000 { static = ["Treble_Clef.svg","notehead.svg"], events = 
 
 looper context (x',y') (a,b) pn = do
 
+        putStrLn ""
+        putStrLn $ show pn
+        -- (a',b') <- getNotes True (a,b)
         (a',b') <- getNotes pn (a,b)
         let intButtIdx = intToPitchToButtIdx (a',b')
             pn'        = isButtPressed context (x',y')
@@ -35,7 +38,6 @@ looper context (x',y') (a,b) pn = do
         putStrLn $ show intButtIdx
         putStrLn $ show pn'
         putStrLn $ show usrButtIdx
-        -- putStrLn $ show pn'
         putStrLn $ show (a',b')
         putStrLn ""
         -- putStrLn $ show $ isButtPressed context (x',y')
@@ -48,31 +50,16 @@ looper context (x',y') (a,b) pn = do
                     wRat = 0.4 --width ratio
                 translate (wdt * wRat, hgt * hRat)
                 
-                -- fillText(Text.pack $ show $ wdt * wRat,-200,-200)
-                -- fillText(Text.pack $ show $ hgt * hRat,-200,-250)              
-                -- fillText(Text.pack $ show (x',y'),-200,-200)
-                -- fillText(Text.pack $ show (wdt, hgt),-150,-150)
-
                 stroke()
                 
                 let ntIdx  = getNoteIdx $ getNoteIdxHelper y' hgt hRat
-                let redraw = shouldRedraw ntIdx y'
-       
-                -- when (not redraw) (
-                  
-                --       do clearRect (-(wdt * wRat), -(hgt * hRat), wdt, hgt)
-                --          let buttCoord = [ drawButton (x*55,150) y | (x,y) <- [(0,"m2"),(1,"m3"),(2,"P4"),(3,"m6"),(4,"m7"),(5,"8ve")]]
-                --          buttCoord' <- sequence buttCoord
-                --          drawNote (wdt, hgt) ntIdx
-                --           img2 <- newImage "Treble_Clef.svg"
-                --       let proportion = (width img2) / (height img2)
-                --       drawImage(img2, [0,-13,70*proportion,70])
-                  
+                let redraw = shouldRedraw ntIdx y' pn'
+
+                --TODO: Replace if with when
                 if not redraw
                   then do
                       restore()
                   else do
-                      -- do
                       clearRect (-(wdt * wRat), -(hgt * hRat), wdt, hgt)
                       let buttCoord = [ drawButton (x*55 - 193,150) y |
                                         (x,y) <- [(0,"u"),(1,"m2"),(2,"M2"),(3,"m3"),(4,"M3"),(5,"P4"),(6,"TT"),
@@ -84,6 +71,8 @@ looper context (x',y') (a,b) pn = do
                       drawNote (wdt, hgt) ntIdx 50
                       sequence_ $ map drawStaffLines [0,10..40]
 
+                      when (guessed) (if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then do fillText("Correct Guess",0,-50)
+                                                                                                    else do fillText("Incorrect Guess",0,-50))
                       img2 <- newImage "Treble_Clef.svg"
                       let proportion = (width img2) / (height img2)
                       drawImage(img2, [0,-13,70*proportion,70])
@@ -94,10 +83,10 @@ looper context (x',y') (a,b) pn = do
           Nothing -> looper context (x',y') (a' ,b') pn'
           Just x -> looper context x (a' ,b') pn'
 
-shouldRedraw :: Maybe a -> Float -> Bool
-shouldRedraw Nothing (-1)  = True
-shouldRedraw Nothing  _    = False
-shouldRedraw (Just _) _    = True
+shouldRedraw :: Maybe a -> Float -> Bool -> Bool
+shouldRedraw Nothing (-1) _  = True
+shouldRedraw Nothing  _   b  = b
+shouldRedraw (Just _) _   _  = True
 
 isInBounds :: Float -> (Float,Float) -> Bool
 isInBounds n (w,h)
@@ -149,15 +138,8 @@ buttonPressWorker ((x,y):z) c@(a,b) = if a >= x && a <= x + 45 &&
 buttonPressWorker [] _              = 1
 buttonPressWorker _ _               = -1                                           
 
--- getNotes :: Bool -> (Int, Int) -> IO (Int, Int)
--- getNotes True _  = do g <- getStdGen
---                       let x = Prelude.head $ randomRs (1,11) g
---                       let y = Prelude.head $ Prelude.tail $ randomRs (max 1 (x - 7), min 11 (x + 7)) g
---                       return (x,y)
--- getNotes False a = do return a
-
 getNotes :: Bool -> (Int, Int) -> IO (Int, Int)
-getNotes True _  = do g <- getStdGen
+getNotes True _  = do g <- newStdGen
                       let (x,g') = randomR (1,10) g
                       let (y,_ ) = randomR (max 1 (x - 7), min 10 (x + 7)) g'
                       return (x,y)
@@ -181,17 +163,6 @@ intToPitchToButtIdx (x,y) = let a = getAbsPitch $ intToPitch x
 
 getAbsPitch :: Music Pitch -> Int
 getAbsPitch (Prim (Note _ m)) = absPitch m
-                                                                                                                                           
--- isButtPressed :: DeviceContext -> (Float, Float) -> ([(Float, Float)], Maybe Float)
--- isButtPressed context (x',y') = let buttCoord = [ (x*55 - 193 + wdt * wRat, 150 + hgt * hRat) | x <- [0..11]]
---                                 -- let buttCoord = [(150 + hgt * hRat, x*55 + wdt * wRat) | x <- [0..4]]
---                                     wdt = width context
---                                     hgt = height context
---                                     hRat = 0.4--3/5
---                                     wRat = 0.4--3/10
---                                     buttIdx = buttonPress buttCoord (x', y')
---                                 -- in if isJust buttIdx then False else True
---                                 in (buttCoord, buttIdx)
 
 getButtPressed :: DeviceContext -> (Float, Float) -> Maybe Float
 getButtPressed context (x',y') = let buttCoord = [ (x*55 - 193 + wdt * wRat, 150 + hgt * hRat) | x <- [0..12]]
@@ -203,5 +174,5 @@ getButtPressed context (x',y') = let buttCoord = [ (x*55 - 193 + wdt * wRat, 150
               
                                                                     
 isButtPressed :: DeviceContext -> (Float, Float) -> Bool
-isButtPressed context (x',y') = if isJust $ getButtPressed context (x',y') then False else True
+isButtPressed context (x',y') = if isJust $ getButtPressed context (x',y') then True else False
                                                                                                                                                                                                                                                                                                                          

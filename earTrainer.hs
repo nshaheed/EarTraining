@@ -33,12 +33,15 @@ looper context (x',y') (a,b) pn = do
            then if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then putStrLn "Correct Guess"
                                                                               else putStrLn "Incorrect Guess"
            else putStr ""
-         
+
+        let ntIdx1 = getNoteIdx ( getNoteIdxHelper y' (height context) 0.4)
+                
         putStrLn $ show guessed
         putStrLn $ show intButtIdx
         putStrLn $ show pn'
         putStrLn $ show usrButtIdx
         putStrLn $ show (a',b')
+        putStrLn $ show ntIdx1
         putStrLn ""
         -- putStrLn $ show $ isButtPressed context (x',y')
         -- putStrLn $ show (x',y')

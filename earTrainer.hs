@@ -18,12 +18,13 @@ looper context (x',y') (a,b) pn = do
 
         putStrLn ""
         putStrLn $ show pn
-        -- (a',b') <- getNotes True (a,b)
         (a',b') <- getNotes pn (a,b)
         let intButtIdx = intToPitchToButtIdx (a',b')
             pn'        = isButtPressed context (x',y')
             usrButtIdx = getButtPressed context (x',y')
             guessed    = if isNothing usrButtIdx then False else True
+            ntIdx1     = getNoteIdx ( getNoteIdxHelper y' (height context) 0.4)
+            thingIDunno= if isJust ntIdx1 then intToPitchToButtIdx (a',(fromJust ntIdx1) + 4) else -1
 
         when pn' $ playNotes (a',b')
         --pn' <- send context $ 
@@ -34,14 +35,13 @@ looper context (x',y') (a,b) pn = do
                                                                               else putStrLn "Incorrect Guess"
            else putStr ""
 
-        let ntIdx1 = getNoteIdx ( getNoteIdxHelper y' (height context) 0.4)
-                
         putStrLn $ show guessed
         putStrLn $ show intButtIdx
         putStrLn $ show pn'
         putStrLn $ show usrButtIdx
         putStrLn $ show (a',b')
         putStrLn $ show ntIdx1
+        putStrLn $ show thingIDunno
         putStrLn ""
         -- putStrLn $ show $ isButtPressed context (x',y')
         -- putStrLn $ show (x',y')
@@ -178,4 +178,3 @@ getButtPressed context (x',y') = let buttCoord = [ (x*55 - 193 + wdt * wRat, 150
                                                                     
 isButtPressed :: DeviceContext -> (Float, Float) -> Bool
 isButtPressed context (x',y') = if isJust $ getButtPressed context (x',y') then True else False
-                                                                                                                                                                                                                                                                                                                         

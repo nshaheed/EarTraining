@@ -20,15 +20,16 @@ looper context (x',y') (a,b) pn = do
         putStrLn $ show pn
         (a',b') <- getNotes pn (a,b)
         let intButtIdx = intToPitchToButtIdx (a',b') -- interval of the random notes
-            pn'        = isButtPressed context (x',y') || isNotePlaced context y' -- valid
-            usrButtIdx = getButtPressed context (x',y') 
-            ntIdx1     = getNoteIdx (getNoteIdxHelper y' (height context) 0.4)
+            pn'        = isButtPressed context (x',y') || isNotePlaced context y' -- determine whether to play note in next call
+            usrButtIdx = getButtPressed context (x',y')  -- index of button pressed
+            ntIdx1     = getNoteIdx (getNoteIdxHelper y' (height context) 0.4) -- index for drawing notes
+            -- usrIdx is assigned the index of whichever, if any, note guessing system was used: button presses or note clicking
             usrIdx     = if isJust usrButtIdx then usrButtIdx else ntIdx1
-            guessed    = if isNothing usrButtIdx && isNothing ntIdx1 then False else True
-            -- thingIDunno= if isJust ntIdx1 then intToPitchToButtIdx (a',(fromJust ntIdx1) + 4) else -1
+            guessed    = if isNothing usrIdx then False else True -- determines whether a note was guessed or not
+            --usrNtIdx converts ntIdx1 to the same number system as usrButtIdx, allowing comparisons
+            usrNtIdx   = if isJust ntIdx1 then Just $ intToPitchToButtIdx (a',(fromJust ntIdx1) + 4) else Nothing
 
         when pn' $ playNotes (a',b')
-        --pn' <- send context $ 
 
         putStrLn ""
         -- if guessed
@@ -40,14 +41,10 @@ looper context (x',y') (a,b) pn = do
         putStrLn $ show intButtIdx
         putStrLn $ show pn'
         putStrLn $ show usrButtIdx
+        putStrLn $ show usrNtIdx
         putStrLn $ show (a',b')
         putStrLn $ show ntIdx1
-        -- putStrLn $ show thingIDunno
-        -- putStrLn $ show (getAbsPitch $ intToPitch a', if isJust ntIdx1 then getAbsPitch (intToPitch (fromJust ntIdx1 + 4)) else -1)
-        -- putStrLn $ show (intToPitch a', if isJust ntIdx1 then intToPitch (fromJust ntIdx1 + 4) else intToPitch 0)
         putStrLn ""
-        -- putStrLn $ show $ isButtPressed context (x',y')
-        -- putStrLn $ show (x',y')
         
         send context (do
                 let (wdt, hgt) = (width context, height context)::(Float,Float)                         
@@ -57,7 +54,8 @@ looper context (x',y') (a,b) pn = do
                 translate (wdt * wRat, hgt * hRat)
                 
                 stroke()
-                
+
+                -- get what note the mouse click equates to
                 let ntIdx  = getNoteIdx $ getNoteIdxHelper y' hgt hRat
                 let redraw = shouldRedraw ntIdx y' pn'
 
@@ -66,13 +64,16 @@ looper context (x',y') (a,b) pn = do
                   then do
                       restore()
                   else do
+                      -- draw the buttons, return a list of their locations
                       clearRect (-(wdt * wRat), -(hgt * hRat), wdt, hgt)
                       let buttCoord = [ drawButton (x*55 - 193,150) y |
                                         (x,y) <- [(0,"u"),(1,"m2"),(2,"M2"),(3,"m3"),(4,"M3"),(5,"P4"),(6,"TT"),
                                                   (7,"P5"),(8,"m6"),(9,"M6"),(10,"m7"),(11,"M7"),(12,"8ve")]]
                       buttCoord' <- sequence buttCoord
+                      -- determine whether button was pressed
                       let buttIdx = buttonPress buttCoord' (x' - wdt * wRat, y' - hgt * hRat)
 
+                      -- draw note based on mouse click
                       drawNote (wdt, hgt) (Just $ a' - 4) 0
                       drawNote (wdt, hgt) ntIdx 50
                       sequence_ $ map drawStaffLines [0,10..40]
@@ -80,11 +81,14 @@ looper context (x',y') (a,b) pn = do
                       -- rework with usrButtIdx such that it accounts for usrButtIdx::Just Int
                       -- when (guessed) (if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then do fillText("Correct Guess",0,-50)
                       --                                                                               else do fillText("Incorrect Guess",0,-50))
+                      -- fiddling to get the treble clef to look good
                       img2 <- newImage "Treble_Clef.svg"
                       let proportion = (width img2) / (height img2)
                       drawImage(img2, [0,-13,70*proportion,70])
+                      
                       restore())
-          
+
+        -- loop function
         event <- wait context
         case ePageXY event of
           Nothing -> looper context (x',y') (a' ,b') pn'
@@ -101,6 +105,7 @@ isInBounds n (w,h)
   | otherwise = if n < -3 then False
                           else True
 
+-- returns the
 getNoteIdx (q,r)
   | q > 5     = Nothing
   | otherwise = if q < -3 then Nothing
@@ -114,7 +119,6 @@ drawNote :: (Float, Float) -> Maybe Int -> Float -> Canvas ()
 drawNote _          (Nothing) _ = do return ()
 drawNote (wdt, hgt) (Just x)  i = do
   img1 <- newImage "notehead.svg"
---  let (wdt, hgt) = (1024, 768)::(Float,Float)
   drawImage(img1, [30 + i,5*fromIntegral x,30,30])
   
 drawStaffLines n  = do
@@ -132,6 +136,7 @@ drawButton (x,y) s = do
   stroke()
   return (x,y)
 
+-- Returns whether the mouse click is within the button
 buttonPress     :: [(Float, Float)] -> (Float, Float) -> Maybe Int
 buttonPress x y = let z = buttonPressWorker x y
                   in if z >= fromIntegral (length x) then Nothing
@@ -145,6 +150,7 @@ buttonPressWorker ((x,y):z) c@(a,b) = if a >= x && a <= x + 45 &&
 buttonPressWorker [] _              = 1
 buttonPressWorker _ _               = -1                                           
 
+-- Generates tuple of two random notes within the range of D4 - G5
 getNotes :: Bool -> (Int, Int) -> IO (Int, Int)
 getNotes True _  = do g <- newStdGen
                       let (x,g') = randomR (1,10) g
@@ -163,6 +169,9 @@ playNotes (x,y) = do let z = intToPitch x :+: intToPitch y
                      writeMidi "randomTest.mid" z
                      --play z
 
+-- Converts the arbitrary index of the notes to a music pitch
+-- which is then converted to the absolute pitch (a standard
+-- Int representation of the pitch)
 intToPitchToButtIdx :: (Int, Int) -> Int
 intToPitchToButtIdx (x,y) = let a = getAbsPitch $ intToPitch x
                                 b = getAbsPitch $ intToPitch y

@@ -19,21 +19,22 @@ looper context (x',y') (a,b) pn = do
         putStrLn ""
         putStrLn $ show pn
         (a',b') <- getNotes pn (a,b)
-        let intButtIdx = intToPitchToButtIdx (a',b')
-            pn'        = isButtPressed context (x',y')
-            usrButtIdx = getButtPressed context (x',y')
-            guessed    = if isNothing usrButtIdx then False else True
-            ntIdx1     = getNoteIdx ( getNoteIdxHelper y' (height context) 0.4)
-            thingIDunno= if isJust ntIdx1 then intToPitchToButtIdx (a',(fromJust ntIdx1) + 4) else -1
+        let intButtIdx = intToPitchToButtIdx (a',b') -- interval of the random notes
+            pn'        = isButtPressed context (x',y') || isNotePlaced context y' -- valid
+            usrButtIdx = getButtPressed context (x',y') 
+            ntIdx1     = getNoteIdx (getNoteIdxHelper y' (height context) 0.4)
+            usrIdx     = if isJust usrButtIdx then usrButtIdx else ntIdx1
+            guessed    = if isNothing usrButtIdx && isNothing ntIdx1 then False else True
+            -- thingIDunno= if isJust ntIdx1 then intToPitchToButtIdx (a',(fromJust ntIdx1) + 4) else -1
 
         when pn' $ playNotes (a',b')
         --pn' <- send context $ 
 
         putStrLn ""
-        if guessed
-           then if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then putStrLn "Correct Guess"
-                                                                              else putStrLn "Incorrect Guess"
-           else putStr ""
+        -- if guessed
+        --    then if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then putStrLn "Correct Guess"
+        --                                                                       else putStrLn "Incorrect Guess"
+        --    else putStr ""
 
         putStrLn $ show guessed
         putStrLn $ show intButtIdx
@@ -41,7 +42,9 @@ looper context (x',y') (a,b) pn = do
         putStrLn $ show usrButtIdx
         putStrLn $ show (a',b')
         putStrLn $ show ntIdx1
-        putStrLn $ show thingIDunno
+        -- putStrLn $ show thingIDunno
+        -- putStrLn $ show (getAbsPitch $ intToPitch a', if isJust ntIdx1 then getAbsPitch (intToPitch (fromJust ntIdx1 + 4)) else -1)
+        -- putStrLn $ show (intToPitch a', if isJust ntIdx1 then intToPitch (fromJust ntIdx1 + 4) else intToPitch 0)
         putStrLn ""
         -- putStrLn $ show $ isButtPressed context (x',y')
         -- putStrLn $ show (x',y')
@@ -74,8 +77,9 @@ looper context (x',y') (a,b) pn = do
                       drawNote (wdt, hgt) ntIdx 50
                       sequence_ $ map drawStaffLines [0,10..40]
 
-                      when (guessed) (if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then do fillText("Correct Guess",0,-50)
-                                                                                                    else do fillText("Incorrect Guess",0,-50))
+                      -- rework with usrButtIdx such that it accounts for usrButtIdx::Just Int
+                      -- when (guessed) (if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then do fillText("Correct Guess",0,-50)
+                      --                                                                               else do fillText("Incorrect Guess",0,-50))
                       img2 <- newImage "Treble_Clef.svg"
                       let proportion = (width img2) / (height img2)
                       drawImage(img2, [0,-13,70*proportion,70])
@@ -96,7 +100,7 @@ isInBounds n (w,h)
   | n > 5     = False
   | otherwise = if n < -3 then False
                           else True
-                              
+
 getNoteIdx (q,r)
   | q > 5     = Nothing
   | otherwise = if q < -3 then Nothing
@@ -128,12 +132,12 @@ drawButton (x,y) s = do
   stroke()
   return (x,y)
 
-buttonPress     :: [(Float, Float)] -> (Float, Float) -> Maybe Float
+buttonPress     :: [(Float, Float)] -> (Float, Float) -> Maybe Int
 buttonPress x y = let z = buttonPressWorker x y
                   in if z >= fromIntegral (length x) then Nothing
                                                      else Just z
 
-buttonPressWorker :: [(Float, Float)] -> (Float, Float) -> Float
+buttonPressWorker :: [(Float, Float)] -> (Float, Float) -> Int
 buttonPressWorker ((x,y):z) c@(a,b) = if a >= x && a <= x + 45 &&
                                          b >= y && b <= y + 30
                                       then 0
@@ -151,9 +155,9 @@ getNotes False a = do return a
 --Converts int to Music Pitch in proper octave with a quarter note length
 intToPitch :: Int -> Music Pitch
 intToPitch i = let notes = [c, d, e, f, g, a, b, c, d, e, f, g]
-               in (notes!!i) ((floor ((fromIntegral i)/7)) + 4) qn
+               in (notes!!(11- i)) ((floor ((fromIntegral (11-i))/7)) + 4) qn
 
-                                     --change from writeMidi to play when publish
+--change from writeMidi to play when publish
 playNotes :: (Int,Int) -> IO ()
 playNotes (x,y) = do let z = intToPitch x :+: intToPitch y
                      writeMidi "randomTest.mid" z
@@ -167,14 +171,17 @@ intToPitchToButtIdx (x,y) = let a = getAbsPitch $ intToPitch x
 getAbsPitch :: Music Pitch -> Int
 getAbsPitch (Prim (Note _ m)) = absPitch m
 
-getButtPressed :: DeviceContext -> (Float, Float) -> Maybe Float
+getButtPressed :: DeviceContext -> (Float, Float) -> Maybe Int
 getButtPressed context (x',y') = let buttCoord = [ (x*55 - 193 + wdt * wRat, 150 + hgt * hRat) | x <- [0..12]]
                                      wdt = width context
                                      hgt = height context
                                      hRat = 0.4
                                      wRat = 0.4
-                                 in buttonPress buttCoord (x', y')
+                                 in  buttonPress buttCoord (x', y')
               
                                                                     
 isButtPressed :: DeviceContext -> (Float, Float) -> Bool
 isButtPressed context (x',y') = if isJust $ getButtPressed context (x',y') then True else False
+
+isNotePlaced :: DeviceContext -> Float -> Bool
+isNotePlaced context y' = if isJust $ getNoteIdx $ getNoteIdxHelper y' (height context) 0.4 then True else False

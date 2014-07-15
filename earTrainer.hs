@@ -60,33 +60,41 @@ looper context (x',y') (a,b) pn = do
                 let redraw = shouldRedraw ntIdx y' pn'
 
                 --TODO: Replace if with when
-                if not redraw
-                  then do
-                      restore()
-                  else do
-                      -- draw the buttons, return a list of their locations
-                      clearRect (-(wdt * wRat), -(hgt * hRat), wdt, hgt)
-                      let buttCoord = [ drawButton (x*55 - 193,150) y |
-                                        (x,y) <- [(0,"u"),(1,"m2"),(2,"M2"),(3,"m3"),(4,"M3"),(5,"P4"),(6,"TT"),
-                                                  (7,"P5"),(8,"m6"),(9,"M6"),(10,"m7"),(11,"M7"),(12,"8ve")]]
-                      buttCoord' <- sequence buttCoord
-                      -- determine whether button was pressed
-                      let buttIdx = buttonPress buttCoord' (x' - wdt * wRat, y' - hgt * hRat)
 
-                      -- draw note based on mouse click
-                      drawNote (wdt, hgt) (Just $ a' - 4) 0
-                      drawNote (wdt, hgt) ntIdx 50
-                      sequence_ $ map drawStaffLines [0,10..40]
 
-                      -- rework with usrButtIdx such that it accounts for usrButtIdx::Just Int
-                      -- when (guessed) (if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then do fillText("Correct Guess",0,-50)
-                      --                                                                               else do fillText("Incorrect Guess",0,-50))
-                      -- fiddling to get the treble clef to look good
-                      img2 <- newImage "Treble_Clef.svg"
-                      let proportion = (width img2) / (height img2)
-                      drawImage(img2, [0,-13,70*proportion,70])
-                      
-                      restore())
+                -- when (not redraw) (
+                --   do clearRect (-(wdt * wRat), -(hgt * hRat), wdt, hgt)
+                --      let x = 1
+                --      fillText("fjkdls",50,50))
+
+                -- if not redraw
+                when (redraw) (
+                  do
+                    -- draw the buttons, return a list of their locations
+                    clearRect (-(wdt * wRat), -(hgt * hRat), wdt, hgt)
+                    let buttCoord = [ drawButton (x*55 - 193,150) y |
+                                      (x,y) <- [(0,"u"),(1,"m2"),(2,"M2"),(3,"m3"),(4,"M3"),(5,"P4"),(6,"TT"),
+                                                (7,"P5"),(8,"m6"),(9,"M6"),(10,"m7"),(11,"M7"),(12,"8ve")]]
+                    buttCoord' <- sequence buttCoord
+                    -- determine whether button was pressed
+                    let buttIdx = buttonPress buttCoord' (x' - wdt * wRat, y' - hgt * hRat)
+
+                    -- draw note based on mouse click
+                    drawNote (wdt, hgt) (Just $ a' - 4) 0
+                    drawNote (wdt, hgt) ntIdx 50
+                    sequence_ $ map drawStaffLines [0,10..40]
+
+                    -- rework with usrButtIdx such that it accounts for usrButtIdx::Just Int
+                    -- when (guessed) (if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then do fillText("Correct Guess",0,-50)
+                    --                                                                               else do fillText("Incorrect Guess",0,-50))
+                    -- fiddling to get the treble clef to look good
+                    img2 <- newImage "Treble_Clef.svg"
+                    let proportion = (width img2) / (height img2)
+                    drawImage(img2, [0,-13,70*proportion,70]))
+                  
+                restore())
+                  
+                
 
         -- loop function
         event <- wait context

@@ -20,14 +20,17 @@ looper context (x',y') (a,b) pn = do
         putStrLn $ show pn
         (a',b') <- getNotes pn (a,b)
         let intButtIdx = intToPitchToButtIdx (a',b') -- interval of the random notes
+            -- ppn'       = 
             pn'        = isButtPressed context (x',y') || isNotePlaced context y' -- determine whether to play note in next call
             usrButtIdx = getButtPressed context (x',y')  -- index of button pressed
             ntIdx1     = getNoteIdx (getNoteIdxHelper y' (height context) 0.4) -- index for drawing notes
-            -- usrIdx is assigned the index of whichever, if any, note guessing system was used: button presses or note clicking
-            usrIdx     = if isJust usrButtIdx then usrButtIdx else ntIdx1
-            guessed    = if isNothing usrIdx then False else True -- determines whether a note was guessed or not
+
             --usrNtIdx converts ntIdx1 to the same number system as usrButtIdx, allowing comparisons
             usrNtIdx   = if isJust ntIdx1 then Just $ intToPitchToButtIdx (a',(fromJust ntIdx1) + 4) else Nothing
+
+            -- usrIdx is assigned the index of whichever, if any, note guessing system was used: button presses or note clicking
+            usrIdx     = if isJust usrButtIdx then usrButtIdx else usrNtIdx
+            guessed    = correctGuess usrIdx intButtIdx
 
         when pn' $ playNotes (a',b')
 
@@ -44,6 +47,7 @@ looper context (x',y') (a,b) pn = do
         putStrLn $ show usrNtIdx
         putStrLn $ show (a',b')
         putStrLn $ show ntIdx1
+        putStrLn $ show usrIdx
         putStrLn ""
         
         send context (do
@@ -81,12 +85,18 @@ looper context (x',y') (a,b) pn = do
 
                     -- draw note based on mouse click
                     drawNote (wdt, hgt) (Just $ a' - 4) 0
-                    drawNote (wdt, hgt) ntIdx 50
+                    drawNote (wdt, hgt) ntIdx 110
+                    when (isJust guessed) (drawNote (wdt, hgt) (Just $ b' -4) 50)
                     sequence_ $ map drawStaffLines [0,10..40]
 
+
                     -- rework with usrButtIdx such that it accounts for usrButtIdx::Just Int
-                    -- when (guessed) (if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then do fillText("Correct Guess",0,-50)
-                    --                                                                               else do fillText("Incorrect Guess",0,-50))
+                    when (isJust guessed) (do font "15pt Calibri"
+                                              if fromJust guessed == True then do fillText("Correct Guess",65,-20)
+                                                                          else do fillText("Incorrect Guess",65,-20)
+                                              fillText("Click to",212, -39)
+                                              fillText("Continue",212, -20))
+                      
                     -- fiddling to get the treble clef to look good
                     img2 <- newImage "Treble_Clef.svg"
                     let proportion = (width img2) / (height img2)
@@ -202,3 +212,7 @@ isButtPressed context (x',y') = if isJust $ getButtPressed context (x',y') then 
 
 isNotePlaced :: DeviceContext -> Float -> Bool
 isNotePlaced context y' = if isJust $ getNoteIdx $ getNoteIdxHelper y' (height context) 0.4 then True else False
+
+correctGuess :: Maybe Int -> Int -> Maybe Bool
+correctGuess Nothing _  = Nothing
+correctGuess (Just a) b = Just $ a == b

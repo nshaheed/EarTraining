@@ -12,16 +12,16 @@ import Graphics.Blank
 import System.Random
 
 main = blankCanvas 3000 { static = ["Treble_Clef.svg","notehead.svg"], events = ["mousedown"]}$ \ context -> do
-     looper context ((-1,-1)::(Float, Float)) (0,0) True
+     looper context ((-1,-1)::(Float, Float)) (0,0) True True
 
-looper context (x',y') (a,b) pn = do
+looper context (x',y') (a,b) ppn pn = do
 
         putStrLn ""
         putStrLn $ show pn
         (a',b') <- getNotes pn (a,b)
         let intButtIdx = intToPitchToButtIdx (a',b') -- interval of the random notes
-            -- ppn'       = 
-            pn'        = isButtPressed context (x',y') || isNotePlaced context y' -- determine whether to play note in next call
+            -- pn'        = isButtPressed context (x',y') || isNotePlaced context y' -- determine whether to play note in next call
+            pn'        = ppn
             usrButtIdx = getButtPressed context (x',y')  -- index of button pressed
             ntIdx1     = getNoteIdx (getNoteIdxHelper y' (height context) 0.4) -- index for drawing notes
 
@@ -31,6 +31,7 @@ looper context (x',y') (a,b) pn = do
             -- usrIdx is assigned the index of whichever, if any, note guessing system was used: button presses or note clicking
             usrIdx     = if isJust usrButtIdx then usrButtIdx else usrNtIdx
             guessed    = correctGuess usrIdx intButtIdx
+            ppn'       = isJust guessed -- preliminary play note'
 
         when pn' $ playNotes (a',b')
 
@@ -61,7 +62,7 @@ looper context (x',y') (a,b) pn = do
 
                 -- get what note the mouse click equates to
                 let ntIdx  = getNoteIdx $ getNoteIdxHelper y' hgt hRat
-                let redraw = shouldRedraw ntIdx y' pn'
+                let redraw = shouldRedraw ntIdx y' (ppn' || pn')
 
                 --TODO: Replace if with when
 
@@ -109,8 +110,8 @@ looper context (x',y') (a,b) pn = do
         -- loop function
         event <- wait context
         case ePageXY event of
-          Nothing -> looper context (x',y') (a' ,b') pn'
-          Just x -> looper context x (a' ,b') pn'
+          Nothing -> looper context (x',y') (a' ,b') ppn' pn'
+          Just x -> looper context x (a' ,b') ppn' pn'
 
 shouldRedraw :: Maybe a -> Float -> Bool -> Bool
 shouldRedraw Nothing (-1) _  = True
@@ -208,7 +209,7 @@ getButtPressed context (x',y') = let buttCoord = [ (x*55 - 193 + wdt * wRat, 150
               
                                                                     
 isButtPressed :: DeviceContext -> (Float, Float) -> Bool
-isButtPressed context (x',y') = if isJust $ getButtPressed context (x',y') then True else False
+isButtPressed context (x',y') = isJust $ getButtPressed context (x',y')
 
 isNotePlaced :: DeviceContext -> Float -> Bool
 isNotePlaced context y' = if isJust $ getNoteIdx $ getNoteIdxHelper y' (height context) 0.4 then True else False

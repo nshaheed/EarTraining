@@ -12,13 +12,11 @@ import Graphics.Blank
 import System.Random
 
 main = blankCanvas 3000 { static = ["Treble_Clef.svg","notehead.svg"], events = ["mousedown"]}$ \ context -> do
-     looper context ((-1,-1)::(Float, Float)) (0,0) True True
+     looper context ((-1,-1)::(Float, Float)) (0,0) False True
 
 looper context (x',y') (a,b) ppn pn = do
 
-        putStrLn ""
-        putStrLn $ show pn
-        (a',b') <- getNotes pn (a,b)
+        (a',b') <- getNotes ppn (a,b)
         let intButtIdx = intToPitchToButtIdx (a',b') -- interval of the random notes
             -- pn'        = isButtPressed context (x',y') || isNotePlaced context y' -- determine whether to play note in next call
             pn'        = ppn
@@ -35,20 +33,23 @@ looper context (x',y') (a,b) ppn pn = do
 
         when pn' $ playNotes (a',b')
 
-        putStrLn ""
         -- if guessed
         --    then if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then putStrLn "Correct Guess"
         --                                                                       else putStrLn "Incorrect Guess"
         --    else putStr ""
 
-        putStrLn $ show guessed
+        -- putStrLn $ show guessed
         putStrLn $ show intButtIdx
+        -- putStrLn $ show pn'
+        -- putStrLn $ show usrButtIdx
+        -- putStrLn $ show usrNtIdx
+        -- putStrLn $ show (a',b')
+        -- putStrLn $ show ntIdx1
+        -- putStrLn $ show usrIdx
+        putStrLn $ show pn
         putStrLn $ show pn'
-        putStrLn $ show usrButtIdx
-        putStrLn $ show usrNtIdx
-        putStrLn $ show (a',b')
-        putStrLn $ show ntIdx1
-        putStrLn $ show usrIdx
+        putStrLn $ show ppn
+        putStrLn $ show ppn'
         putStrLn ""
         
         send context (do
@@ -91,7 +92,6 @@ looper context (x',y') (a,b) ppn pn = do
                     sequence_ $ map drawStaffLines [0,10..40]
 
 
-                    -- rework with usrButtIdx such that it accounts for usrButtIdx::Just Int
                     when (isJust guessed) (do font "15pt Calibri"
                                               if fromJust guessed == True then do fillText("Correct Guess",65,-20)
                                                                           else do fillText("Incorrect Guess",65,-20)
@@ -172,7 +172,7 @@ buttonPressWorker _ _               = -1
 -- Generates tuple of two random notes within the range of D4 - G5
 getNotes :: Bool -> (Int, Int) -> IO (Int, Int)
 getNotes True _  = do g <- newStdGen
-                      let (x,g') = randomR (1,10) g
+                      let (x,g') = randomR (0,10) g
                       let (y,_ ) = randomR (max 1 (x - 7), min 10 (x + 7)) g'
                       return (x,y)
 getNotes False a = do return a

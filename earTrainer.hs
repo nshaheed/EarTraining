@@ -12,16 +12,16 @@ import Graphics.Blank
 import System.Random
 
 main = blankCanvas 3000 { static = ["Treble_Clef.svg","notehead.svg"], events = ["mousedown"]}$ \ context -> do
-     looper context ((-1,-1)::(Float, Float)) (0,0) False True
+     looper context ((-1,-1)::(Float, Float)) (0,0) True False False
 
-looper context (x',y') (a,b) ppn pn = do
+looper context (x',y') (a,b) ppn pn ignInp = do
 
         (a',b') <- getNotes ppn (a,b)
         let intButtIdx = intToPitchToButtIdx (a',b') -- interval of the random notes
             -- pn'        = isButtPressed context (x',y') || isNotePlaced context y' -- determine whether to play note in next call
             pn'        = ppn
-            usrButtIdx = getButtPressed context (x',y')  -- index of button pressed
-            ntIdx1     = getNoteIdx (getNoteIdxHelper y' (height context) 0.4) -- index for drawing notes
+            usrButtIdx = getButtPressed context (x',y') ignInp -- index of button pressed
+            ntIdx1     = getNoteIdx (getNoteIdxHelper y' (height context) 0.4) ignInp -- index for drawing notes
 
             --usrNtIdx converts ntIdx1 to the same number system as usrButtIdx, allowing comparisons
             usrNtIdx   = if isJust ntIdx1 then Just $ intToPitchToButtIdx (a',(fromJust ntIdx1) + 4) else Nothing
@@ -29,28 +29,35 @@ looper context (x',y') (a,b) ppn pn = do
             -- usrIdx is assigned the index of whichever, if any, note guessing system was used: button presses or note clicking
             usrIdx     = if isJust usrButtIdx then usrButtIdx else usrNtIdx
             guessed    = correctGuess usrIdx intButtIdx
-            ppn'       = isJust guessed -- preliminary play note'
+            ppn'       = isJust guessed -- preliminary play note', used to control when the info just needs to be displayed
+            ignInp'    = if ignInp then False else (not ppn) && ppn'
 
         when pn' $ playNotes (a',b')
 
-        -- if guessed
-        --    then if (abs (intButtIdx) == ((floor $ fromJust usrButtIdx)::Int)) then putStrLn "Correct Guess"
-        --                                                                       else putStrLn "Incorrect Guess"
-        --    else putStr ""
-
         -- putStrLn $ show guessed
+        putStr   "ignInp: "
+        putStrLn $ show ignInp
+        putStr   "ignInp': "
+        putStrLn $ show ignInp'
+        putStr   "intButtIdx: "
         putStrLn $ show intButtIdx
-        -- putStrLn $ show pn'
-        -- putStrLn $ show usrButtIdx
-        -- putStrLn $ show usrNtIdx
-        -- putStrLn $ show (a',b')
-        -- putStrLn $ show ntIdx1
-        -- putStrLn $ show usrIdx
-        putStrLn $ show pn
+        putStr "pn': "
         putStrLn $ show pn'
-        putStrLn $ show ppn
-        putStrLn $ show ppn'
-        putStrLn ""
+        putStr "usrButtIdx: "
+        putStrLn $ show usrButtIdx
+        putStr "usrNtIdx: "
+        putStrLn $ show usrNtIdx
+        putStr "(a',b'): "
+        putStrLn $ show (a',b')
+        putStr "ntIdx1: "
+        putStrLn $ show ntIdx1
+        putStr "usrIdx: "
+        putStrLn $ show usrIdx
+        -- putStrLn $ show pn
+        -- putStrLn $ show pn'
+        -- putStrLn $ show ppn
+        -- putStrLn $ show ppn'
+        -- putStrLn ""
         
         send context (do
                 let (wdt, hgt) = (width context, height context)::(Float,Float)                         
@@ -62,18 +69,9 @@ looper context (x',y') (a,b) ppn pn = do
                 stroke()
 
                 -- get what note the mouse click equates to
-                let ntIdx  = getNoteIdx $ getNoteIdxHelper y' hgt hRat
+                let ntIdx  = getNoteIdx (getNoteIdxHelper y' hgt hRat) ignInp
                 let redraw = shouldRedraw ntIdx y' (ppn' || pn')
 
-                --TODO: Replace if with when
-
-
-                -- when (not redraw) (
-                --   do clearRect (-(wdt * wRat), -(hgt * hRat), wdt, hgt)
-                --      let x = 1
-                --      fillText("fjkdls",50,50))
-
-                -- if not redraw
                 when (redraw) (
                   do
                     -- draw the buttons, return a list of their locations
@@ -88,13 +86,13 @@ looper context (x',y') (a,b) ppn pn = do
                     -- draw note based on mouse click
                     drawNote (wdt, hgt) (Just $ a' - 4) 0
                     drawNote (wdt, hgt) ntIdx 110
-                    when (isJust guessed) (drawNote (wdt, hgt) (Just $ b' -4) 50)
+                    when (isJust guessed) (drawNote (wdt, hgt) (Just $ b' -4) 55)
                     sequence_ $ map drawStaffLines [0,10..40]
 
 
                     when (isJust guessed) (do font "15pt Calibri"
                                               if fromJust guessed == True then do fillText("Correct Guess",65,-20)
-                                                                          else do fillText("Incorrect Guess",65,-20)
+                                                else do fillText("Incorrect Guess",65,-20)
                                               fillText("Click to",212, -39)
                                               fillText("Continue",212, -20))
                       
@@ -105,13 +103,11 @@ looper context (x',y') (a,b) ppn pn = do
                   
                 restore())
                   
-                
-
         -- loop function
         event <- wait context
         case ePageXY event of
-          Nothing -> looper context (x',y') (a' ,b') ppn' pn'
-          Just x -> looper context x (a' ,b') ppn' pn'
+          Nothing -> looper context (x',y') (a' ,b') ppn' pn' ignInp'
+          Just x -> looper context x (a' ,b') ppn' pn' ignInp' 
 
 shouldRedraw :: Maybe a -> Float -> Bool -> Bool
 shouldRedraw Nothing (-1) _  = True
@@ -124,12 +120,13 @@ isInBounds n (w,h)
   | otherwise = if n < -3 then False
                           else True
 
--- returns the
-getNoteIdx (q,r)
+-- returns the arbitrary note index given the variables which I can't remember what they did
+getNoteIdx (q,r) False
   | q > 5     = Nothing
   | otherwise = if q < -3 then Nothing
                 else Just (q + (quot r 3))
-  
+getNoteIdx _     True = Nothing
+
 getNoteIdxHelper n h r = let n' = floor $ n - h * r - 13
                          in (quot n' 5, rem n' 5)
 
@@ -185,8 +182,8 @@ intToPitch i = let notes = [c, d, e, f, g, a, b, c, d, e, f, g]
 --change from writeMidi to play when publish
 playNotes :: (Int,Int) -> IO ()
 playNotes (x,y) = do let z = intToPitch x :+: intToPitch y
-                     writeMidi "randomTest.mid" z
-                     --play z
+                     --writeMidi "randomTest.mid" z
+                     play z
 
 -- Converts the arbitrary index of the notes to a music pitch
 -- which is then converted to the absolute pitch (a standard
@@ -199,20 +196,14 @@ intToPitchToButtIdx (x,y) = let a = getAbsPitch $ intToPitch x
 getAbsPitch :: Music Pitch -> Int
 getAbsPitch (Prim (Note _ m)) = absPitch m
 
-getButtPressed :: DeviceContext -> (Float, Float) -> Maybe Int
-getButtPressed context (x',y') = let buttCoord = [ (x*55 - 193 + wdt * wRat, 150 + hgt * hRat) | x <- [0..12]]
-                                     wdt = width context
-                                     hgt = height context
-                                     hRat = 0.4
-                                     wRat = 0.4
-                                 in  buttonPress buttCoord (x', y')
-              
-                                                                    
-isButtPressed :: DeviceContext -> (Float, Float) -> Bool
-isButtPressed context (x',y') = isJust $ getButtPressed context (x',y')
-
-isNotePlaced :: DeviceContext -> Float -> Bool
-isNotePlaced context y' = if isJust $ getNoteIdx $ getNoteIdxHelper y' (height context) 0.4 then True else False
+getButtPressed :: DeviceContext -> (Float, Float) -> Bool -> Maybe Int
+getButtPressed context (x',y') False = let buttCoord = [ (x*55 - 193 + wdt * wRat, 150 + hgt * hRat) | x <- [0..12]]
+                                           wdt = width context
+                                           hgt = height context
+                                           hRat = 0.4
+                                           wRat = 0.4
+                                       in  buttonPress buttCoord (x', y')
+getButtPressed _       _       True  = Nothing              
 
 correctGuess :: Maybe Int -> Int -> Maybe Bool
 correctGuess Nothing _  = Nothing

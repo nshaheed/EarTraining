@@ -134,8 +134,40 @@ getNoteIdxHelper n h r = let n' = floor $ n - h * r - 13
 drawNote :: (Float, Float) -> Maybe Int -> Float -> Canvas ()
 drawNote _          (Nothing) _ = do return ()
 drawNote (wdt, hgt) (Just x)  i = do
-  img1 <- newImage "notehead.svg"
-  drawImage(img1, [30 + i,5*fromIntegral x,30,30])
+  save()
+  translate(50 + i,5*fromIntegral x - 3 + 20)
+  scale(0.06,0.06)
+  notehead
+  restore()
+  -- img1 <- newImage "notehead.svg"
+  -- drawImage(img1, [30 + i,5*fromIntegral x,30,30])
+
+notehead = do
+  rotate (-pi/8)
+  beginPath()
+  moveTo(0, -1)
+  bezierCurveTo(0,80,200,80,200,-1)
+  -- line color
+  strokeStyle "black"
+
+  closePath()
+  lineWidth 10
+  fillStyle "#000000"
+  fill()
+  stroke()
+
+  beginPath()
+  moveTo(0, 0)
+  bezierCurveTo(0,-80,200,-80,200,0)
+  -- line color
+  strokeStyle "black"
+
+  closePath()
+  lineWidth 10
+  fillStyle "#000000"
+  fill()
+  stroke()
+                                                                                                                
   
 drawStaffLines n  = do
   beginPath()
@@ -182,8 +214,8 @@ intToPitch i = let notes = [c, d, e, f, g, a, b, c, d, e, f, g]
 --change from writeMidi to play when publish
 playNotes :: (Int,Int) -> IO ()
 playNotes (x,y) = do let z = intToPitch x :+: intToPitch y
-                     --writeMidi "randomTest.mid" z
-                     play z
+                     writeMidi "randomTest.mid" z
+                     -- play z
 
 -- Converts the arbitrary index of the notes to a music pitch
 -- which is then converted to the absolute pitch (a standard

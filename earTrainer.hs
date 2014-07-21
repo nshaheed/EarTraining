@@ -18,7 +18,6 @@ looper context (x',y') (a,b) ppn pn ignInp = do
 
         (a',b') <- getNotes ppn (a,b)
         let intButtIdx = intToPitchToButtIdx (a',b') -- interval of the random notes
-            -- pn'        = isButtPressed context (x',y') || isNotePlaced context y' -- determine whether to play note in next call
             pn'        = ppn
             usrButtIdx = getButtPressed context (x',y') ignInp -- index of button pressed
             ntIdx1     = getNoteIdx (getNoteIdxHelper y' (height context) 0.4) ignInp -- index for drawing notes
@@ -34,31 +33,6 @@ looper context (x',y') (a,b) ppn pn ignInp = do
 
         when pn' $ playNotes (a',b')
 
-        -- putStrLn $ show guessed
-        putStr   "ignInp: "
-        putStrLn $ show ignInp
-        putStr   "ignInp': "
-        putStrLn $ show ignInp'
-        putStr   "intButtIdx: "
-        putStrLn $ show intButtIdx
-        putStr "pn': "
-        putStrLn $ show pn'
-        putStr "usrButtIdx: "
-        putStrLn $ show usrButtIdx
-        putStr "usrNtIdx: "
-        putStrLn $ show usrNtIdx
-        putStr "(a',b'): "
-        putStrLn $ show (a',b')
-        putStr "ntIdx1: "
-        putStrLn $ show ntIdx1
-        putStr "usrIdx: "
-        putStrLn $ show usrIdx
-        -- putStrLn $ show pn
-        -- putStrLn $ show pn'
-        -- putStrLn $ show ppn
-        -- putStrLn $ show ppn'
-        -- putStrLn ""
-        
         send context (do
                 let (wdt, hgt) = (width context, height context)::(Float,Float)                         
                 save()
@@ -75,8 +49,11 @@ looper context (x',y') (a,b) ppn pn ignInp = do
                 when (redraw) (
                   do
                     -- draw the buttons, return a list of their locations
-                    clearRect (-(wdt * wRat), -(hgt * hRat), wdt, hgt)
-                    let buttCoord = [ drawButton (x*55 - 193,150) y |
+                    save()
+                    setTransform(1,0,0,1,0,0)
+                    clearRect(0,0,wdt,hgt)
+                    restore()
+                    let buttCoord = [ drawButton (x*55 - 227,150) y |
                                       (x,y) <- [(0,"u"),(1,"m2"),(2,"M2"),(3,"m3"),(4,"M3"),(5,"P4"),(6,"TT"),
                                                 (7,"P5"),(8,"m6"),(9,"M6"),(10,"m7"),(11,"M7"),(12,"8ve")]]
                     buttCoord' <- sequence buttCoord
@@ -214,8 +191,8 @@ intToPitch i = let notes = [c, d, e, f, g, a, b, c, d, e, f, g]
 --change from writeMidi to play when publish
 playNotes :: (Int,Int) -> IO ()
 playNotes (x,y) = do let z = intToPitch x :+: intToPitch y
-                     writeMidi "randomTest.mid" z
-                     -- play z
+                     -- writeMidi "randomTest.mid" z
+                     play z
 
 -- Converts the arbitrary index of the notes to a music pitch
 -- which is then converted to the absolute pitch (a standard
@@ -228,8 +205,9 @@ intToPitchToButtIdx (x,y) = let a = getAbsPitch $ intToPitch x
 getAbsPitch :: Music Pitch -> Int
 getAbsPitch (Prim (Note _ m)) = absPitch m
 
+--Return a maybe on the index of a button press, if there was one
 getButtPressed :: DeviceContext -> (Float, Float) -> Bool -> Maybe Int
-getButtPressed context (x',y') False = let buttCoord = [ (x*55 - 193 + wdt * wRat, 150 + hgt * hRat) | x <- [0..12]]
+getButtPressed context (x',y') False = let buttCoord = [ (x*55 - 227 + wdt * wRat, 150 + hgt * hRat) | x <- [0..12]]
                                            wdt = width context
                                            hgt = height context
                                            hRat = 0.4
@@ -237,6 +215,7 @@ getButtPressed context (x',y') False = let buttCoord = [ (x*55 - 193 + wdt * wRa
                                        in  buttonPress buttCoord (x', y')
 getButtPressed _       _       True  = Nothing              
 
+--Determines whether the was an interval guess and if it was correct
 correctGuess :: Maybe Int -> Int -> Maybe Bool
 correctGuess Nothing _  = Nothing
 correctGuess (Just a) b = Just $ a == b
